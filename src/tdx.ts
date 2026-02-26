@@ -7,6 +7,8 @@ const TDX_BASE_URL = 'https://tdx.transportdata.tw/api/basic'
 
 let cachedToken: { value: string; expiresAt: number } | null = null
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 /**
  * 將字串中的單引號跳脫，防止 OData $filter 注入。
  * OData 規範：單引號以兩個單引號表示。
@@ -86,11 +88,15 @@ export async function fetchBusSchedule(
       }
     )
 
-    // 過濾：同一路線也要包含 toStop
+    // 過濾：同一路線也要包含 toStop，並去重（去回程各一條，只需查一次時刻表）
+    const seen = new Set<string>()
     const matchedRoutes: Array<{ RouteUID: string; RouteName: { Zh_tw: string } }> =
-      routeRes.data.filter((r: any) =>
-        r.Stops?.some((s: any) => s.StopName?.Zh_tw === toStop)
-      )
+      routeRes.data.filter((r: any) => {
+        if (!r.Stops?.some((s: any) => s.StopName?.Zh_tw === toStop)) return false
+        if (seen.has(r.RouteName.Zh_tw)) return false
+        seen.add(r.RouteName.Zh_tw)
+        return true
+      })
 
     if (matchedRoutes.length === 0) {
       console.warn(`⚠️  找不到同時包含「${fromStop}」和「${toStop}」的市區公車路線`)
@@ -98,8 +104,12 @@ export async function fetchBusSchedule(
     }
 
     // 取得每條路線的時刻表
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const targetDayKey = dayNames[targetDate.day()]
+
     for (const route of matchedRoutes) {
       const routeName = route.RouteName.Zh_tw
+      await sleep(600)
       try {
         const schedRes = await axios.get(
           `${TDX_BASE_URL}/v2/Bus/Schedule/City/${city}/${encodeURIComponent(routeName)}`,
@@ -108,10 +118,6 @@ export async function fetchBusSchedule(
             params: { $format: 'JSON' },
           }
         )
-
-        // 解析班次時間（TDX Schedule API 只記錄起站時間，依星期幾過濾）
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        const targetDayKey = dayNames[targetDate.day()]
 
         for (const entry of schedRes.data) {
           if (!entry.Timetables) continue
@@ -154,8 +160,12 @@ export async function fetchBusSchedule(
       return []
     }
 
+    const dayNames2 = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const targetDayKey2 = dayNames2[targetDate.day()]
+
     for (const route of matchedRoutes) {
       const routeName = route.RouteName.Zh_tw
+      await sleep(600)
       try {
         const schedRes = await axios.get(
           `${TDX_BASE_URL}/v2/Bus/Schedule/Intercity/${encodeURIComponent(routeName)}`,
@@ -165,13 +175,10 @@ export async function fetchBusSchedule(
           }
         )
 
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        const targetDayKey = dayNames[targetDate.day()]
-
         for (const entry of schedRes.data) {
           if (!entry.Timetables) continue
           for (const timetable of entry.Timetables) {
-            if (!timetable.ServiceDay?.[targetDayKey]) continue
+            if (!timetable.ServiceDay?.[targetDayKey2]) continue
             const firstStop = timetable.StopTimes?.[0]
             if (firstStop?.DepartureTime) {
               results.push({
