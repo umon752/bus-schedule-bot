@@ -18,6 +18,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run build
+
       - name: 推播公車時刻表
         run: RUN_ON_START=true npm start
         env:
