@@ -1,0 +1,31 @@
+name: 每日公車時刻推播
+
+on:
+  schedule:
+    - cron: '0 11 * * *'  # 每天 19:00 台北時間（UTC+8 = UTC 11:00）
+  workflow_dispatch:        # 允許手動觸發測試
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: 推播公車時刻表
+        run: RUN_ON_START=true npm start
+        env:
+          TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+          TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          BUS_CITY: Taoyuan
+          BUS_FROM_STOP: 新坡
+          BUS_TO_STOP: 天祥醫院(志廣路)
+          TIMEZONE: Asia/Taipei

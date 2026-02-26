@@ -48,5 +48,8 @@ cron.schedule('0 19 * * *', () => {
 // 啟動時立即執行一次（方便測試，正式部署可移除或加環境變數控制）
 if (process.env.RUN_ON_START === 'true') {
   console.log('🔄 RUN_ON_START=true，立即執行一次...')
-  runJob().catch(console.error)
+  runJob().then(() => process.exit(0)).catch(err => {
+    console.error(err)
+    process.exit(1)
+  })
 }
