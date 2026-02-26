@@ -1,0 +1,9 @@
+# 依賴
+node_modules/
+dist/
+
+# 環境變數（含機密金鑰，禁止 commit）
+.env
+
+# 系統檔案
+.DS_Store
