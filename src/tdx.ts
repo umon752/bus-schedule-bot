@@ -109,16 +109,20 @@ export async function fetchBusSchedule(
           }
         )
 
-        // 解析班次時間
+        // 解析班次時間（TDX Schedule API 只記錄起站時間，依星期幾過濾）
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        const targetDayKey = dayNames[targetDate.day()]
+
         for (const entry of schedRes.data) {
-          if (entry.StopTimes) {
-            for (const stop of entry.StopTimes) {
-              if (stop.StopName?.Zh_tw === fromStop && stop.DepartureTime) {
-                results.push({
-                  routeName,
-                  departureTime: stop.DepartureTime,
-                })
-              }
+          if (!entry.Timetables) continue
+          for (const timetable of entry.Timetables) {
+            if (!timetable.ServiceDay?.[targetDayKey]) continue
+            const firstStop = timetable.StopTimes?.[0]
+            if (firstStop?.DepartureTime) {
+              results.push({
+                routeName,
+                departureTime: firstStop.DepartureTime,
+              })
             }
           }
         }
@@ -161,15 +165,19 @@ export async function fetchBusSchedule(
           }
         )
 
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        const targetDayKey = dayNames[targetDate.day()]
+
         for (const entry of schedRes.data) {
-          if (entry.StopTimes) {
-            for (const stop of entry.StopTimes) {
-              if (stop.StopName?.Zh_tw === fromStop && stop.DepartureTime) {
-                results.push({
-                  routeName,
-                  departureTime: stop.DepartureTime,
-                })
-              }
+          if (!entry.Timetables) continue
+          for (const timetable of entry.Timetables) {
+            if (!timetable.ServiceDay?.[targetDayKey]) continue
+            const firstStop = timetable.StopTimes?.[0]
+            if (firstStop?.DepartureTime) {
+              results.push({
+                routeName,
+                departureTime: firstStop.DepartureTime,
+              })
             }
           }
         }
