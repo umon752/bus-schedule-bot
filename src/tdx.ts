@@ -198,5 +198,7 @@ export async function fetchBusSchedule(
 
   // 排序：依出發時間升冪
   results.sort((a, b) => a.departureTime.localeCompare(b.departureTime))
-  return results
+
+  // 只保留 06:00 ~ 08:00 的班次
+  return results.filter(r => r.departureTime >= '06:00' && r.departureTime <= '08:00')
 }

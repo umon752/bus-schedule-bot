@@ -3,6 +3,7 @@ import cron from 'node-cron'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone.js'
 import utc from 'dayjs/plugin/utc.js'
+import http from 'http'
 import { fetchBusSchedule } from './tdx.js'
 import { sendScheduleToLine } from './line.js'
 
@@ -44,6 +45,15 @@ console.log(`📋 每天 19:00 自動推播 ${FROM_STOP} → ${TO_STOP} 時刻�
 cron.schedule('0 19 * * *', () => {
   runJob().catch(console.error)
 }, { timezone: TZ })
+
+// ── HTTP 健康檢查（防止 Railway 讓服務進入睡眠）──
+const PORT = process.env.PORT || 3000
+http.createServer((_, res) => {
+  res.writeHead(200)
+  res.end('ok')
+}).listen(PORT, () => {
+  console.log(`🌐 Health check server running on port ${PORT}`)
+})
 
 // 啟動時立即執行一次（方便測試，正式部署可移除或加環境變數控制）
 if (process.env.RUN_ON_START === 'true') {
