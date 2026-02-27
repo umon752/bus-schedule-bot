@@ -35,7 +35,7 @@ function formatScheduleMessage(
   for (const s of schedules) {
     if (!grouped[s.routeName]) grouped[s.routeName] = []
     const label = s.arrivalAtFromStop
-      ? `${s.departureTime}(${s.arrivalAtFromStop})`
+      ? `${s.departureTime} (${s.arrivalAtFromStop})`
       : s.departureTime
     grouped[s.routeName].push(label)
   }
@@ -43,9 +43,8 @@ function formatScheduleMessage(
   const lines: string[] = [header]
   for (const [routeName, times] of Object.entries(grouped)) {
     lines.push(`\n🔹 路線：${routeName}`)
-    // 每行最多顯示 4 個時間
-    for (let i = 0; i < times.length; i += 4) {
-      lines.push('   ' + times.slice(i, i + 4).join('  '))
+    for (const t of times) {
+      lines.push(`   ${t}`)
     }
   }
 
