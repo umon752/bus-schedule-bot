@@ -9,6 +9,23 @@ let cachedToken: { value: string; expiresAt: number } | null = null
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+/** 遇到 429 自動重試，最多 retries 次，每次等待加倍 */
+async function axiosGetWithRetry(url: string, config: object, retries = 3, delayMs = 2000): Promise<any> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await axios.get(url, config)
+    } catch (err) {
+      if (err instanceof AxiosError && err.response?.status === 429 && i < retries) {
+        console.warn(`⚠️  429 rate limit，${delayMs / 1000}s 後重試（第 ${i + 1} 次）...`)
+        await sleep(delayMs)
+        delayMs *= 2
+      } else {
+        throw err
+      }
+    }
+  }
+}
+
 /**
  * 將字串中的單引號跳脫，防止 OData $filter 注入。
  * OData 規範：單引號以兩個單引號表示。
@@ -146,7 +163,7 @@ export async function fetchBusSchedule(
       const travelMins = routeTravelMins[routeName] ?? 0
       await sleep(600)
       try {
-        const schedRes = await axios.get(
+        const schedRes = await axiosGetWithRetry(
           `${TDX_BASE_URL}/v2/Bus/Schedule/City/${city}/${encodeURIComponent(routeName)}`,
           {
             headers,
@@ -203,7 +220,7 @@ export async function fetchBusSchedule(
       const routeName = route.RouteName.Zh_tw
       await sleep(600)
       try {
-        const schedRes = await axios.get(
+        const schedRes = await axiosGetWithRetry(
           `${TDX_BASE_URL}/v2/Bus/Schedule/Intercity/${encodeURIComponent(routeName)}`,
           {
             headers,
