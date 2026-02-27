@@ -34,7 +34,10 @@ function formatScheduleMessage(
   const grouped: Record<string, string[]> = {}
   for (const s of schedules) {
     if (!grouped[s.routeName]) grouped[s.routeName] = []
-    grouped[s.routeName].push(s.departureTime)
+    const label = s.arrivalAtFromStop
+      ? `${s.departureTime}(${s.arrivalAtFromStop})`
+      : s.departureTime
+    grouped[s.routeName].push(label)
   }
 
   const lines: string[] = [header]

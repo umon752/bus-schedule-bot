@@ -49,10 +49,29 @@ export async function getTdxToken(): Promise<string> {
   return access_token
 }
 
+/** Haversine 距離（km） */
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/** 將 HH:mm 加上分鐘數，回傳 HH:mm */
+function addMinutes(time: string, mins: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + mins
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0')
+  const mm = String(total % 60).padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
 /** TDX 公車時刻表（單一班次） */
 export interface BusScheduleItem {
   routeName: string
-  departureTime: string  // HH:mm
+  departureTime: string     // HH:mm（第一站發車時間）
+  arrivalAtFromStop?: string // HH:mm（預計抵達起始站時間）
   arrivalTime?: string
 }
 
@@ -90,7 +109,7 @@ export async function fetchBusSchedule(
 
     // 過濾：同一路線也要包含 toStop，並去重（去回程各一條，只需查一次時刻表）
     const seen = new Set<string>()
-    const matchedRoutes: Array<{ RouteUID: string; RouteName: { Zh_tw: string } }> =
+    const matchedRoutes: Array<{ RouteUID: string; RouteName: { Zh_tw: string }; Stops: any[] }> =
       routeRes.data.filter((r: any) => {
         if (!r.Stops?.some((s: any) => s.StopName?.Zh_tw === toStop)) return false
         if (seen.has(r.RouteName.Zh_tw)) return false
@@ -103,12 +122,28 @@ export async function fetchBusSchedule(
       return []
     }
 
+    // 計算每條路線從第一站到 fromStop 的估計行駛分鐘（依站點座標距離，平均 25 km/h）
+    const routeTravelMins: Record<string, number> = {}
+    for (const r of matchedRoutes) {
+      const stops: any[] = r.Stops || []
+      const newpoIdx = stops.findIndex((s: any) => s.StopName?.Zh_tw === fromStop)
+      if (newpoIdx <= 0) { routeTravelMins[r.RouteName.Zh_tw] = 0; continue }
+      let dist = 0
+      for (let i = 0; i < newpoIdx; i++) {
+        const a = stops[i].StopPosition
+        const b = stops[i + 1].StopPosition
+        if (a && b) dist += haversine(a.PositionLat, a.PositionLon, b.PositionLat, b.PositionLon)
+      }
+      routeTravelMins[r.RouteName.Zh_tw] = Math.round(dist / 25 * 60)
+    }
+
     // 取得每條路線的時刻表
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     const targetDayKey = dayNames[targetDate.day()]
 
     for (const route of matchedRoutes) {
       const routeName = route.RouteName.Zh_tw
+      const travelMins = routeTravelMins[routeName] ?? 0
       await sleep(600)
       try {
         const schedRes = await axios.get(
@@ -128,6 +163,7 @@ export async function fetchBusSchedule(
               results.push({
                 routeName,
                 departureTime: firstStop.DepartureTime,
+                arrivalAtFromStop: travelMins > 0 ? addMinutes(firstStop.DepartureTime, travelMins) : undefined,
               })
             }
           }
