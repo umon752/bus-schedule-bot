@@ -1,9 +1,7 @@
 name: 每日公車時刻推播
 
 on:
-  schedule:
-    - cron: '0 11 * * *'  # 每天 19:00 台北時間（UTC+8 = UTC 11:00）
-  workflow_dispatch:        # 允許手動觸發測試
+  workflow_dispatch:        # 僅允許手動觸發
 
 jobs:
   notify:
